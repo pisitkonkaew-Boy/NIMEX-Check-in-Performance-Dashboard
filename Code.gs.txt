@@ -1,7 +1,8 @@
 /** NIMEX Check-in Performance — Apps Script (วางใน Extensions > Apps Script ของ Google Sheet ใหม่ บันทึกเป็น Code.gs)
  *  Script Properties: ADMIN_KEY = รหัสผู้ดูแล (ห้ามเขียนรหัสลงไฟล์นี้)
  *  Deploy > New deployment > Web app > Execute as: Me · Who has access: Anyone → คัดลอก URL /exec ใส่ใน config.js
- *  แท็บ Rows / Meta / Log สร้างให้อัตโนมัติ */
+ *  แท็บ Rows / Meta / Settings / Log สร้างให้อัตโนมัติ
+ *  v2: เพิ่มค่าตั้งเกรด / KPI / จำนวนรายการขั้นต่ำ ของหน้าแชร์และอินโฟกราฟิก (a: settings) */
 var COLS = ['date_i','dc_i','pt_i','kind_i','plate_i','shift_i','ci','diff','dist','st','fine','fine_rule'];
 var META_KEYS = ['dates','dcs','pts','kinds','plates','vcode','shifts','st','zoneOrder','zmap'];
 var CK = 'cip-data', CHUNK = 90000;
@@ -13,6 +14,26 @@ function tab_(name, head) {
   return t;
 }
 function log_(a, d) { tab_('Log', ['time', 'action', 'detail']).appendRow([new Date(), a, d]); }
+var KPI_IDS = ['n', 'on', 'late', 'nock', 'off', 'fine'];
+/* grade = เกณฑ์เกรดจาก % ตรงเวลา {A,B,C,D} · kpis = KPI ที่แสดง · minRows = จำนวนรายการขั้นต่ำของ DC ที่นำมาจัดอันดับ */
+function validSetting_(k, v) {
+  if (k === 'grade') return v && typeof v === 'object' && ['A', 'B', 'C', 'D'].every(function (g) { return typeof v[g] === 'number' && v[g] >= 0 && v[g] <= 100; }) &&
+    Object.keys(v).length === 4 && v.A >= v.B && v.B >= v.C && v.C >= v.D;
+  if (k === 'kpis') return Array.isArray(v) && v.length >= 1 && v.length <= KPI_IDS.length && v.every(function (x) { return KPI_IDS.indexOf(x) >= 0; });
+  if (k === 'minRows') return v === Math.floor(v) && v >= 1 && v <= 100000;
+  return false;
+}
+function readSettings_() {
+  var t = tab_('Settings', ['key', 'value']), n = t.getLastRow(), o = {};
+  if (n > 1) t.getRange(2, 1, n - 1, 2).getValues().forEach(function (r) { if (r[0] !== '') { try { o[String(r[0])] = JSON.parse(r[1]); } catch (e) {} } });
+  return o;
+}
+function writeSettings_(o) {
+  var t = tab_('Settings', ['key', 'value']), n = t.getLastRow();
+  if (n > 1) t.getRange(2, 1, n - 1, 2).clearContent();
+  var rows = Object.keys(o).map(function (k) { return [k, JSON.stringify(o[k])]; });
+  if (rows.length) { t.getRange(2, 1, rows.length, 2).setNumberFormat('@'); t.getRange(2, 1, rows.length, 2).setValues(rows); }
+}
 function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 function publicJson_() {
@@ -20,7 +41,7 @@ function publicJson_() {
   var rows = n < 2 ? [] : t.getRange(2, 1, n - 1, COLS.length).getValues();
   var m = tab_('Meta', ['key', 'json']), k = m.getLastRow(), meta = {};
   if (k > 1) m.getRange(2, 1, k - 1, 2).getValues().forEach(function (r) { if (r[0] !== '') meta[String(r[0])] = JSON.parse(r[1]); });
-  return JSON.stringify({ ok: true, cols: COLS, meta: meta, rows: rows, updated: PropertiesService.getScriptProperties().getProperty('UPDATED') || '' });
+  return JSON.stringify({ ok: true, v: 2, cols: COLS, meta: meta, rows: rows, settings: readSettings_(), updated: PropertiesService.getScriptProperties().getProperty('UPDATED') || '' });
 }
 function cacheGet_() {
   var c = CacheService.getScriptCache(), n = c.get(CK + '-n'); if (!n) return null;
@@ -53,6 +74,13 @@ function doPost(e) {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(25000)) return json_({ ok: false, error: 'busy' });
   try {
+    if (b.a === 'settings') {
+      var cur = readSettings_(), inc = b.settings || {};
+      for (var sk in inc) { if (!validSetting_(sk, inc[sk])) return json_({ ok: false, error: 'bad_value', key: sk }); cur[sk] = inc[sk]; }
+      writeSettings_(cur); log_('settings', JSON.stringify(inc));
+      cacheClear_(); try { cachePut_(publicJson_()); } catch (x) {}
+      return json_({ ok: true, settings: cur });
+    }
     var t = tab_('Rows', COLS);
     if (b.a === 'begin') {            // the page sends the whole dataset after an import: clear first
       var n = t.getLastRow(); if (n > 1) t.getRange(2, 1, n - 1, COLS.length).clearContent();

@@ -241,6 +241,38 @@ body{font-family:'Prompt',system-ui,sans-serif;overflow-x:clip}
   .brand small{font-size:11px}
 }
 
+/* ===== share / export dialog (nimex-export-infographic-169) ===== */
+.cis{position:fixed;inset:0;z-index:5000;background:rgba(4,16,38,.6);display:grid;place-items:center;padding:16px}
+.cis[hidden]{display:none}
+.cis-box{background:#fff;color:#0b1f3f;border-radius:16px;border-top:4px solid #d4af37;width:100%;max-width:640px;max-height:calc(100vh - 32px);overflow:auto;padding:18px 20px;font-family:'Prompt',system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+html[data-theme=dark] .cis-box{background:#0e2140;color:#eaf0fb}
+.cis-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cis-top h2{margin:0;font-size:19px;font-weight:600}
+.cis-x{border:0;background:none;font-size:20px;cursor:pointer;color:inherit;width:36px;height:36px;border-radius:50%}
+.cis-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.cis-seg{display:flex;background:#e6eefb;border-radius:999px;padding:3px}
+.cis-seg button{border:0;background:none;border-radius:999px;padding:6px 16px;font:inherit;font-size:13.5px;color:#55657f;cursor:pointer}
+.cis-seg button.on{background:#b8860b;color:#fff;font-weight:500}
+.cis-seg button:disabled{opacity:.5;cursor:default}
+.cis-rg{display:flex;align-items:center;gap:6px;font-size:13.5px}
+.cis-rg select,.cis-box input[type=number]{font:inherit;padding:6px 10px;border:1px solid #c3cfe2;border-radius:10px;background:#fff;color:#0b1f3f}
+.cis-note{font-size:12.5px;color:#55657f;margin:10px 0;line-height:1.6}
+html[data-theme=dark] .cis-note{color:#a3b4d0}
+.cis-info{width:100%;border:0;border-radius:12px;padding:12px;font:inherit;font-size:16px;font-weight:600;cursor:pointer;background:linear-gradient(180deg,#f0d57a,#d4af37);color:#0a2a5e;min-height:48px}
+.cis-h{display:block;font-size:13.5px;font-weight:600;margin:14px 0 6px}
+.cis-checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px}
+.cis-checks label{display:flex;gap:8px;align-items:center;font-size:13.5px;padding:6px 8px;border:1px solid #dbe3f0;border-radius:10px;cursor:pointer}
+.cis-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cis-btns button{border:0;border-radius:999px;padding:9px 16px;font:inherit;font-size:13.5px;font-weight:500;background:#0a2a5e;color:#fff;cursor:pointer;min-height:40px}
+.cis-btns button.alt{background:#e6eefb;color:#0a2a5e}
+.cis-box textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;border:1px solid #c3cfe2;border-radius:10px;padding:10px;background:#f4f7fc;color:#0b1f3f;resize:vertical}
+.cis-msg{min-height:20px;font-size:13px;color:#123f8c;margin:8px 0 0}
+.cis-grade{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.cis-grade label{display:flex;align-items:center;gap:8px;font-size:14px}
+.cis-grade span{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;color:#fff;font-weight:600}
+.cis-grade input{width:84px}
+@media (max-width:520px){.cis-box{padding:14px}.cis-checks{grid-template-columns:1fr}.cis-grade{grid-template-columns:1fr}}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -271,6 +303,7 @@ body{font-family:'Prompt',system-ui,sans-serif;overflow-x:clip}
    <label class="fl">ค่าปรับ <select id="fineMode" class="sel"><option value="file">ตามไฟล์</option><option value="rule">ตามกฎ (คำนวณใหม่)</option></select></label>
    <button class="btn" id="themeBtn" title="สลับโหมดมืด/สว่าง">🌓</button>
    <button class="btn" id="pagepng">📷 PNG ทั้งหน้า</button>
+   <button class="btn gold" id="shareBtn" title="แชร์ / ส่งออก / อินโฟกราฟิก 16:9">📤 แชร์ / อินโฟกราฟิก</button>
    <button class="btn gold" id="sumBtn">📝 สรุปงาน</button>
    <button class="btn gold" id="uplBtn">📂 เติมไฟล์</button>
    <button class="btn ghost" id="logoutBtn">ออกจากระบบ (Admin)</button>
@@ -396,6 +429,7 @@ body{font-family:'Prompt',system-ui,sans-serif;overflow-x:clip}
 
 
 </div></div>
-<script src="config.js?v=1"></script>
-<script src="boot.js?v=1"></script>
+<script src="config.js?v=2"></script>
+<script src="share.js?v=2"></script>
+<script src="boot.js?v=2"></script>
 </body></html>

@@ -22,6 +22,7 @@
   /* key check on the Apps Script side; remembered for this tab only */
   window.cipAuth = function (k) { return post({ a: 'auth' }, k).then(function () { ss(k); return true; }).catch(function () { ss(null); return false; }); };
   window.cipLogout = function () { ss(null); };
+  window.cipApi = function (body) { return post(body); }; /* ใช้โดย share.js (บันทึกค่าตั้ง) */
 
   /* whole dataset → Sheet: begin, meta, rows in chunks, finish */
   function pushAll(D, note, step) {
@@ -75,6 +76,7 @@
       META_KEYS.forEach(function (k) { D[k] = R.meta[k]; });
       D.rows = R.rows.map(function (r) { return r.map(function (v) { return v === '' ? null : v; }); });
       window.CIP_DATA = D;
+      window.CIP_SETTINGS = R.settings || {};
       status(R.updated);
       $('boot').hidden = true;
       var s = document.createElement('script');
