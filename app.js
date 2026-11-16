@@ -676,6 +676,8 @@ function doImport(){
   applyDataset(buildDataset(base,zmap,D.zoneOrder));
   $('#upMsg').textContent=`✓ นำเข้าสำเร็จ: เพิ่ม ${num(added)} รายการ${dup?` (ข้ามซ้ำ ${num(dup)})`:''}${pendIdx?' · อัปเดตโซนแล้ว':''} · รวม ${num(D.rows.length)} รายการ`;
   pendData=null;pendIdx=null;$('#upData').value='';$('#upIdx').value='';$('#upInfo').classList.add('hide');
+  /* ขั้นเดียว: นำเข้าแล้วถามบันทึกลง Google Sheet ต่อทันที */
+  window.cipDirty=true;setTimeout(()=>window.cipSave(D),80);
 }
 function saveHTML(){
   const json=JSON.stringify(D).replace(/<\//g,'<\\/');
