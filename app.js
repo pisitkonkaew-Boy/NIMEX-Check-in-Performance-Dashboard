@@ -37,6 +37,7 @@ const hhmm=m=>m==null?'—':String(Math.floor(m/60)).padStart(2,'0')+':'+String(
 const F={d0:0,d1:N-1,region:new Set(),zone:new Set(),dc:new Set(),pt:new Set(),kind:new Set(),st:new Set(),shift:new Set(),q:'',fine:'file',target:90};
 const fineOf=r=>F.fine==='rule'?r[11]:r[10];
 function pass(r,skipSt){
+  if(dInfo[r[0]].dow===0)return false; /* ไม่นำวันอาทิตย์มาคำนวณ */
   const dc=r[1];
   if(F.region.size&&!F.region.has(dcReg[dc]))return false;
   if(F.zone.size&&!F.zone.has(dcZone[dc]))return false;
@@ -195,7 +196,7 @@ function renderKPI(){$('#kpis').innerHTML=kpiDefs(sum,psum).map((k,i)=>`<div cla
 
 function buckets(g){
   const out=[];
-  if(g==='day'){for(let i=F.d0;i<=F.d1;i++)out.push({l:`${fmtDs(i)} (${TH_D[dInfo[i].dow]})`,i0:i,i1:i})}
+  if(g==='day'){for(let i=F.d0;i<=F.d1;i++)if(dInfo[i].dow!==0)out.push({l:`${fmtDs(i)} (${TH_D[dInfo[i].dow]})`,i0:i,i1:i})}
   else{const key=g==='week'?weekOf:i=>dInfo[i].y*100+dInfo[i].m;let c=null;
     for(let i=F.d0;i<=F.d1;i++){const k=key(i);if(!c||c.k!==k){c={k,i0:i,i1:i};out.push(c)}c.i1=i}
     out.forEach(b=>b.l=g==='week'?`${fmtDs(b.i0)}–${fmtDs(b.i1)}`:`${TH_M[dInfo[b.i0].m-1]} ${dInfo[b.i0].y}`)}
@@ -307,7 +308,7 @@ function renderHeat(){
     el.className='hm hm-reg';el.style.removeProperty('--w');el.style.removeProperty('--n');
     el.innerHTML=order.length?order.map(g=>{const a=rg.get(g),c=heatCol(a.ok/a.n,lo,hi),zs=D.zoneOrder.filter(z=>(zoneReg[z]||regionOf(z))===g&&zn.has(z));
       return `<div class="rg" data-reg="${g}" style="background:${c.bg};color:${c.fg}" title="${g} · ตรงเวลา ${pc(a.ok/a.n)} (${num(a.ok)}/${num(a.n)})"><div class="rn">${g}</div><div class="rv">${pc(a.ok/a.n)}</div><div class="rs">${num(a.n)} รายการ</div>`+
-        (zs.length>1?`<div class="zs">${zs.map(z=>{const b=zn.get(z),d=heatCol(b.ok/b.n,lo,hi);return `<span class="zc" data-zone="${z}" style="background:${d.bg};color:${d.fg}" title="${z} · ตรงเวลา ${pc(b.ok/b.n)} (${num(b.ok)}/${num(b.n)})">${z.replace(g,'')||z} ${pc(b.ok/b.n,0)}</span>`}).join('')}</div>`:'')+`</div>`}).join(''):'<div class="hm-empty">ไม่มีข้อมูลในวันที่เลือก</div>';
+        (zs.length>1?`<div class="zs">${zs.map(z=>{const b=zn.get(z),d=heatCol(b.ok/b.n,lo,hi);return `<span class="zc" data-zone="${z}" style="background:${d.bg};color:${d.fg}" title="${z} · ตรงเวลา ${pc(b.ok/b.n)} (${num(b.ok)}/${num(b.n)})">${z.replace(g,'')||z} ${pc(b.ok/b.n,0)}</span>`}).join('')}</div>`:'')+`</div>`}).join(''):`<div class="hm-empty">${dInfo[F.d0].dow===0?'วันอาทิตย์ไม่นำมาคำนวณ':'ไม่มีข้อมูลในวันที่เลือก'}</div>`;
     el.onclick=e=>{const z=e.target.closest('[data-zone]');if(z){toggle(F.zone,z.dataset.zone);return}const g=e.target.closest('[data-reg]');if(g)toggle(F.region,g.dataset.reg)};
     return;
   }
@@ -315,15 +316,15 @@ function renderHeat(){
   const vals=[];for(let i=F.d0;i<=F.d1;i++)if(cell[i].n)vals.push(cell[i]);const [lo,hi]=heatDomain(vals);
   if(span<=14){ /* ---- ไม่เกิน 2 สัปดาห์: แถบรายวัน ---- */
     heatHead('Heatmap % ตรงเวลา รายวัน',`${fmtD(F.d0)} – ${fmtD(F.d1)} · แต่ละช่อง = 1 วัน · คลิกเพื่อเปิดรายละเอียดของวันนั้น`,lo,hi);
-    el.className='hm hm-days';el.style.removeProperty('--w');el.style.setProperty('--n',Math.min(span,7));let h='';
-    for(let i=F.d0;i<=F.d1;i++){const c=cell[i],x=dInfo[i],lab=`<div class="dw">${TH_D[x.dow]}</div><div class="dd">${x.d} ${TH_M[x.m-1]}</div>`;
+    el.className='hm hm-days';el.style.removeProperty('--w');let nd=0;for(let i=F.d0;i<=F.d1;i++)if(dInfo[i].dow!==0)nd++;el.style.setProperty('--n',Math.max(1,Math.min(nd,6)));let h='';
+    for(let i=F.d0;i<=F.d1;i++){if(dInfo[i].dow===0)continue;const c=cell[i],x=dInfo[i],lab=`<div class="dw">${TH_D[x.dow]}</div><div class="dd">${x.d} ${TH_M[x.m-1]}</div>`;
       h+=c.n?(k=>`<div class="day" data-i="${i}" style="background:${k.bg};color:${k.fg}" title="${fmtD(i)} · ตรงเวลา ${pc(c.ok/c.n)} (${c.ok}/${c.n})">${lab}<div class="dv">${pc(c.ok/c.n)}</div><div class="dn">${num(c.n)} รายการ</div></div>`)(heatCol(c.ok/c.n,lo,hi)):`<div class="day off">${lab}<div class="dn">ไม่มีข้อมูล</div></div>`}
     el.innerHTML=h;
   }else{ /* ---- ปฏิทินรายสัปดาห์ เฉพาะสัปดาห์ที่อยู่ในช่วง ---- */
     const w0=weekOf(F.d0),w1=weekOf(F.d1),Wr=w1-w0+1,big=Wr<=6,mid=Wr<=12;
     heatHead('Heatmap % ตรงเวลา รายวัน × สัปดาห์',`${fmtD(F.d0)} – ${fmtD(F.d1)} · แต่ละช่อง = 1 วัน · คลิกเพื่อเปิดรายละเอียดของวันนั้น`,lo,hi);
     el.className='hm'+(big?' hm-big':mid?' hm-mid':'');el.style.removeProperty('--n');el.style.setProperty('--w',Wr);
-    const order=[1,2,3,4,5,6,0];let h=`<div></div>`;
+    const order=[1,2,3,4,5,6];let h=`<div></div>`;
     for(let w=w0;w<=w1;w++){const i=Math.max(F.d0,w*7-mon0);h+=`<div class="lab">${dInfo[i].d}/${dInfo[i].m}</div>`}
     order.forEach((dw,ri)=>{h+=`<div class="lab">${TH_D[dw]}</div>`;
       for(let w=w0;w<=w1;w++){const i=w*7+ri-mon0;
@@ -482,7 +483,7 @@ function dayDrawer(i){
   openDrawer(`${fmtD(i)} (วัน${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'][dInfo[i].dow]})`,'ตามตัวกรองปัจจุบัน (ยกเว้นช่วงวันที่)',h,'day-'+D.dates[i]);
 }
 function vehDrawer(p){
-  const rows=R.filter(r=>r[4]===p&&!dcHide[r[1]]),s=summ(rows),a=vehAgg(rows)[0];
+  const rows=R.filter(r=>r[4]===p&&!dcHide[r[1]]&&dInfo[r[0]].dow!==0),s=summ(rows),a=vehAgg(rows)[0];
   const worst=new Array(N).fill(-1);const pri=[0,2,3,4];// rank: ok<late<off<no
   const rank=[1,3,2,4];rows.forEach(r=>{const d=r[0];if(worst[d]<0||rank[r[9]]>rank[worst[d]])worst[d]=r[9]});
   let cal='';for(let k=0;k<W*7;k++){const i=k-mon0;if(i<0||i>=N){cal+='<div style="background:transparent"></div>';continue}
