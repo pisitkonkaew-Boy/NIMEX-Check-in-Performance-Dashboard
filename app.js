@@ -700,9 +700,11 @@ function applyDataset(nd){
   buildDateUI();update();
 }
 function doImport(){
-  if(!pendData&&!pendIdx){$('#upMsg').textContent='กรุณาเลือกไฟล์ก่อน';return}
+  if(!pendData&&!pendIdx&&!dupCount()){$('#upMsg').textContent='กรุณาเลือกไฟล์ก่อน';return}
   const zmap=pendIdx||D.zmap,key=r=>`${r.date}|${r.dc}|${r.plate}|${r.plan}`;
   let base=decodeRecords(D),added=0,replaced=0;
+  /* ล้างรายการซ้ำที่ค้างอยู่ในระบบ (เก็บค่าล่าสุด) */
+  const uq=new Map();for(const r of base)uq.set(key(r),r);const cleaned=base.length-uq.size;base=[...uq.values()];
   if(pendData){
     /* เติมข้อมูลใหม่ · ถ้าซ้ำ (วันที่+DC+ทะเบียน+กะ) ใช้ค่าจากไฟล์ใหม่เสมอ */
     const nm=new Map();for(const r of pendData.recs)nm.set(key(r),r);
@@ -710,7 +712,7 @@ function doImport(){
     for(const r of nm.values())base.push(r);added=nm.size-replaced;
   }
   applyDataset(buildDataset(base,zmap,D.zoneOrder));
-  const done=`✓ นำเข้าแล้ว: เพิ่มใหม่ ${num(added)} รายการ${replaced?` · แทนค่าซ้ำด้วยค่าใหม่ ${num(replaced)} รายการ`:''}${pendIdx?' · อัปเดตโซนแล้ว':''} · รวม ${num(D.rows.length)} รายการ`;
+  const done=`✓ นำเข้าแล้ว: เพิ่มใหม่ ${num(added)} รายการ${replaced?` · แทนค่าซ้ำด้วยค่าใหม่ ${num(replaced)} รายการ`:''}${cleaned?` · ล้างรายการซ้ำเดิม ${num(cleaned)} รายการ`:''}${pendIdx?' · อัปเดตโซนแล้ว':''} · รวม ${num(D.rows.length)} รายการ`;
   pendData=null;pendIdx=null;$('#upData').value='';$('#upIdx').value='';$('#upInfo').classList.add('hide');$('#upGo').disabled=true;
   window.cipDirty=true;window.cipSave(D,{noConfirm:true,done});
 }
@@ -720,7 +722,11 @@ function saveHTML(){
   download(URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),`NIMEX_Checkin_Dashboard_${stamp()}.html`);
   $('#upMsg').textContent='✓ บันทึกไฟล์แดชบอร์ดฉบับอัปเดตแล้ว — ส่งไฟล์นี้ให้ผู้อื่นเพื่อให้เห็นข้อมูลล่าสุด';
 }
-$('#uplBtn').onclick=()=>{if(isAdmin){if(!window.cipDirty)$('#upMsg').textContent='';$('#upGo').disabled=!(pendData||pendIdx);$('#upl').classList.add('on')}};
+/* ตรวจรายการซ้ำในระบบ (วันที่+DC+ทะเบียน+กะ) — มีปุ่มล้างให้ผู้ดูแล */
+function dupCount(){const k=new Set();let d=0;for(const r of R){const x=r[0]+'|'+r[1]+'|'+r[4]+'|'+r[5];if(k.has(x))d++;else k.add(x)}return d}
+function showDup(){const n=dupCount(),b=$('#upDup');if(!b)return;b.classList.toggle('hide',!n);b.textContent=`🧹 ล้างรายการซ้ำในระบบ (${num(n)} รายการ)`}
+$('#uplBtn').onclick=()=>{if(isAdmin){if(!window.cipDirty)$('#upMsg').textContent='';$('#upGo').disabled=!(pendData||pendIdx);showDup();$('#upl').classList.add('on')}};
+$('#upDup').onclick=()=>{if(window.cipSaving)return;if(!confirm(`ล้างรายการซ้ำ ${num(dupCount())} รายการ (เก็บค่าล่าสุด) แล้วบันทึกลง Google Sheet?`))return;pendData=null;doImport();$('#upDup').classList.add('hide')};
 $('#upClose').onclick=()=>$('#upl').classList.remove('on');
 $('#upData').onchange=onPickData;$('#upIdx').onchange=e=>{onPickIdx(e).then(()=>{if(pendIdx)$('#upGo').disabled=false})};$('#upGo').onclick=window.cipImport=doImport;
 
