@@ -287,17 +287,52 @@ function renderDC(){
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const a=list[c.dataIndex][1];return [`${pct?c.parsed.x.toFixed(1)+'%':num(c.parsed.x)}`,`รายการ ${num(a.n)} · ตรงเวลา ${pc(a.s[0]/a.n)} · ค่าปรับ ${num(a.fine)}`]}}}}}});
 }
 function hsl(p,a=1){const t=Math.max(0,Math.min(1,(p-.4)/.6)),c1=[192,73,90],c2=[232,203,104],c3=[30,79,163];const [A,B,u]=t<.5?[c1,c2,t*2]:[c2,c3,(t-.5)*2];return `rgba(${A.map((x,i)=>Math.round(x+(B[i]-x)*u)).join(',')},${a})`}
+/* Heatmap ปรับตามช่วงที่เลือก: 1 วัน → รายภาค/โซน · ≤ 14 วัน → แถบรายวัน · มากกว่านั้น → ปฏิทินรายสัปดาห์ (เฉพาะสัปดาห์ในช่วง)
+   สีปรับสเกลตามค่าต่ำสุด–สูงสุดของช่วงที่เลือก (แดง = ต่ำ → ครีม → น้ำเงิน = สูง) */
+function heatDomain(a){ /* a = [{n,ok}] · ไม่ให้วันที่มีรายการน้อยมาก (เช่น วันอาทิตย์) ดึงสเกล */
+  const ns=a.map(x=>x.n).sort((x,y)=>x-y),med=ns.length?ns[Math.floor(ns.length/2)]:0,big=a.filter(x=>x.n>=Math.max(5,med*.2)),v=(big.length?big:a).map(x=>x.ok/x.n);
+  if(!v.length)return[0,1];let lo=Math.floor(Math.min(...v)*20)/20,hi=Math.ceil(Math.max(...v)*20)/20;if(hi-lo<.05){const m=(lo+hi)/2;lo=Math.max(0,m-.025);hi=Math.min(1,m+.025)}return[lo,hi]}
+const HEAT_STOPS=[[184,51,74],[227,143,134],[247,234,208],[143,178,232],[29,87,184]];
+function heatCol(p,lo,hi){const t=hi>lo?Math.max(0,Math.min(1,(p-lo)/(hi-lo))):.5,k=Math.min(3,Math.floor(t*4)),u=t*4-k,A=HEAT_STOPS[k],B=HEAT_STOPS[k+1],c=A.map((v,i)=>Math.round(v+(B[i]-v)*u)),L=(.2126*c[0]+.7152*c[1]+.0722*c[2])/255;return{bg:`rgb(${c})`,fg:L>.6?'#0b1f3f':'#fff'}}
+function heatHead(t,s,lo,hi){const c=$('#hm').closest('.card');c.querySelector('h3').textContent=t;c.querySelector('.sub').textContent=s;
+  $('#hmLeg').innerHTML=`<span>${pc(lo,0)}</span><span class="bar" style="background:linear-gradient(90deg,${HEAT_STOPS.map(c=>`rgb(${c})`).join(',')})"></span><span>${pc(hi,0)}</span><span class="hm-note">สเกลปรับตามช่วงที่เลือก</span>`}
 function renderHeat(){
+  const el=$('#hm'),span=F.d1-F.d0+1;el.onclick=null;
+  if(span===1){ /* ---- วันเดียว: รายภาค + โซน ---- */
+    const rg=new Map(),zn=new Map(),add=(m,k,r)=>{let a=m.get(k);if(!a){a={n:0,ok:0};m.set(k,a)}a.n++;if(r[9]===0)a.ok++};
+    for(const r of cur){add(rg,dcReg[r[1]],r);add(zn,dcZone[r[1]],r)}
+    const order=[...new Set(D.zoneOrder.map(z=>zoneReg[z]||regionOf(z)))].filter(x=>rg.has(x));[...rg.keys()].forEach(x=>{if(!order.includes(x))order.push(x)});
+    const [lo,hi]=heatDomain([...rg.values(),...zn.values()]);
+    heatHead('Heatmap % ตรงเวลา รายภาค',`${fmtD(F.d0)} · แต่ละช่อง = 1 ภาค · คลิกภาคหรือโซนเพื่อกรอง`,lo,hi);
+    el.className='hm hm-reg';el.style.removeProperty('--w');el.style.removeProperty('--n');
+    el.innerHTML=order.length?order.map(g=>{const a=rg.get(g),c=heatCol(a.ok/a.n,lo,hi),zs=D.zoneOrder.filter(z=>(zoneReg[z]||regionOf(z))===g&&zn.has(z));
+      return `<div class="rg" data-reg="${g}" style="background:${c.bg};color:${c.fg}" title="${g} · ตรงเวลา ${pc(a.ok/a.n)} (${num(a.ok)}/${num(a.n)})"><div class="rn">${g}</div><div class="rv">${pc(a.ok/a.n)}</div><div class="rs">${num(a.n)} รายการ</div>`+
+        (zs.length>1?`<div class="zs">${zs.map(z=>{const b=zn.get(z),d=heatCol(b.ok/b.n,lo,hi);return `<span class="zc" data-zone="${z}" style="background:${d.bg};color:${d.fg}" title="${z} · ตรงเวลา ${pc(b.ok/b.n)} (${num(b.ok)}/${num(b.n)})">${z.replace(g,'')||z} ${pc(b.ok/b.n,0)}</span>`}).join('')}</div>`:'')+`</div>`}).join(''):'<div class="hm-empty">ไม่มีข้อมูลในวันที่เลือก</div>';
+    el.onclick=e=>{const z=e.target.closest('[data-zone]');if(z){toggle(F.zone,z.dataset.zone);return}const g=e.target.closest('[data-reg]');if(g)toggle(F.region,g.dataset.reg)};
+    return;
+  }
   const cell=Array.from({length:N},()=>({n:0,ok:0}));for(const r of cur){const c=cell[r[0]];c.n++;if(r[9]===0)c.ok++}
-  const order=[1,2,3,4,5,6,0];let h=`<div></div>`;
-  for(let w=0;w<W;w++){const i=Math.max(0,w*7-mon0);h+=`<div class="lab">${dInfo[i].d}/${dInfo[i].m}</div>`}
-  order.forEach((dw,ri)=>{h+=`<div class="lab">${TH_D[dw]}</div>`;
-    for(let w=0;w<W;w++){const i=w*7+ri-mon0;
-      if(i<0||i>=N){h+=`<div></div>`;continue}
-      const c=cell[i],inR=i>=F.d0&&i<=F.d1&&c.n>0;
-      h+=inR?`<div class="cell" data-i="${i}" style="background:${hsl(c.ok/c.n)}" title="${fmtD(i)} · ตรงเวลา ${pc(c.ok/c.n)} (${c.ok}/${c.n})"></div>`:`<div class="cell off" title="${fmtD(i)} (นอกช่วง/ไม่มีข้อมูล)"></div>`}});
-  const el=$('#hm');el.style.setProperty('--w',W);el.innerHTML=h;
-  el.onclick=e=>{const c=e.target.closest('.cell[data-i]');if(c)dayDrawer(+c.dataset.i)};
+  const vals=[];for(let i=F.d0;i<=F.d1;i++)if(cell[i].n)vals.push(cell[i]);const [lo,hi]=heatDomain(vals);
+  if(span<=14){ /* ---- ไม่เกิน 2 สัปดาห์: แถบรายวัน ---- */
+    heatHead('Heatmap % ตรงเวลา รายวัน',`${fmtD(F.d0)} – ${fmtD(F.d1)} · แต่ละช่อง = 1 วัน · คลิกเพื่อเปิดรายละเอียดของวันนั้น`,lo,hi);
+    el.className='hm hm-days';el.style.removeProperty('--w');el.style.setProperty('--n',Math.min(span,7));let h='';
+    for(let i=F.d0;i<=F.d1;i++){const c=cell[i],x=dInfo[i],lab=`<div class="dw">${TH_D[x.dow]}</div><div class="dd">${x.d} ${TH_M[x.m-1]}</div>`;
+      h+=c.n?(k=>`<div class="day" data-i="${i}" style="background:${k.bg};color:${k.fg}" title="${fmtD(i)} · ตรงเวลา ${pc(c.ok/c.n)} (${c.ok}/${c.n})">${lab}<div class="dv">${pc(c.ok/c.n)}</div><div class="dn">${num(c.n)} รายการ</div></div>`)(heatCol(c.ok/c.n,lo,hi)):`<div class="day off">${lab}<div class="dn">ไม่มีข้อมูล</div></div>`}
+    el.innerHTML=h;
+  }else{ /* ---- ปฏิทินรายสัปดาห์ เฉพาะสัปดาห์ที่อยู่ในช่วง ---- */
+    const w0=weekOf(F.d0),w1=weekOf(F.d1),Wr=w1-w0+1,big=Wr<=6,mid=Wr<=12;
+    heatHead('Heatmap % ตรงเวลา รายวัน × สัปดาห์',`${fmtD(F.d0)} – ${fmtD(F.d1)} · แต่ละช่อง = 1 วัน · คลิกเพื่อเปิดรายละเอียดของวันนั้น`,lo,hi);
+    el.className='hm'+(big?' hm-big':mid?' hm-mid':'');el.style.removeProperty('--n');el.style.setProperty('--w',Wr);
+    const order=[1,2,3,4,5,6,0];let h=`<div></div>`;
+    for(let w=w0;w<=w1;w++){const i=Math.max(F.d0,w*7-mon0);h+=`<div class="lab">${dInfo[i].d}/${dInfo[i].m}</div>`}
+    order.forEach((dw,ri)=>{h+=`<div class="lab">${TH_D[dw]}</div>`;
+      for(let w=w0;w<=w1;w++){const i=w*7+ri-mon0;
+        if(i<F.d0||i>F.d1||i>=N){h+=`<div></div>`;continue}
+        const c=cell[i];
+        h+=c.n?(k=>`<div class="cell" data-i="${i}" style="background:${k.bg};color:${k.fg}" title="${fmtD(i)} · ตรงเวลา ${pc(c.ok/c.n)} (${c.ok}/${c.n})">${mid?pc(c.ok/c.n,0):''}</div>`)(heatCol(c.ok/c.n,lo,hi)):`<div class="cell off" title="${fmtD(i)} (ไม่มีข้อมูล)"></div>`}});
+    el.innerHTML=h;
+  }
+  el.onclick=e=>{const c=e.target.closest('[data-i]');if(c)dayDrawer(+c.dataset.i)};
 }
 function renderTypes(){
   const gp=groupBy(cur,r=>r[2]),gk=groupBy(cur,r=>r[3]),hd=t=>[t,{n:0,s:[0,0,0,0]}];

@@ -101,6 +101,21 @@ main{padding:20px 18px 44px;max-width:1500px;margin:0 auto}
 .hm .cell.off{opacity:.35;cursor:default}
 .hm .cell:hover{outline:2px solid var(--gold)}
 .hm .lab{font-size:11px;color:var(--mute);text-align:center;overflow:hidden}
+.hm .cell{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+.hm.hm-mid .cell{height:34px}.hm.hm-big .cell{height:46px;font-size:13px;border-radius:8px}.hm.hm-big{gap:5px}.hm.hm-big .lab{font-size:12.5px}
+.hm.hm-days{grid-template-columns:repeat(var(--n,7),minmax(0,1fr));gap:8px}
+@media(max-width:700px){.hm.hm-days{grid-template-columns:repeat(auto-fill,minmax(92px,1fr))}}
+.hm-days .day{border-radius:12px;padding:10px 3px;text-align:center;cursor:pointer;display:flex;flex-direction:column;gap:1px;min-height:104px;justify-content:center}
+.hm-days .day:hover,.hm-reg .rg:hover,.hm-reg .zc:hover{outline:2px solid var(--gold);outline-offset:1px}
+.hm-days .day.off{background:var(--soft);color:var(--mute);cursor:default;opacity:.6}
+.hm-days .dw{font-size:12px;opacity:.85}.hm-days .dd{font-size:13px;font-weight:600}.hm-days .dv{font-size:clamp(15px,1.35vw,20px);font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums}.hm-days .dn{font-size:11px;opacity:.85;line-height:1.25}
+.hm.hm-reg{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.hm-reg .rg{border-radius:14px;padding:14px 10px 12px;text-align:center;cursor:pointer;display:flex;flex-direction:column;gap:2px;justify-content:center;min-height:128px}
+.hm-reg .rn{font-size:14px;font-weight:600}.hm-reg .rv{font-size:28px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums}.hm-reg .rs{font-size:12px;opacity:.85}
+.hm-reg .zs{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:6px}
+.hm-reg .zc{font-size:11.5px;font-weight:500;padding:3px 8px;border-radius:999px;box-shadow:0 0 0 1px rgba(255,255,255,.55);cursor:pointer;white-space:nowrap}
+.hm-empty{grid-column:1/-1;padding:40px 0;color:var(--mute)}
+.legend .hm-note{font-size:11.5px;opacity:.8}
 .legend{display:flex;gap:10px;font-size:12px;color:var(--mute);align-items:center;justify-content:center;flex-wrap:wrap;margin-top:10px}
 .legend .bar{height:8px;width:130px;border-radius:4px;background:linear-gradient(90deg,#c0495a,#e8cb68,#1e4fa3)}
 .tw{overflow:auto;max-height:560px;border:1px solid var(--line);border-radius:12px}
@@ -356,7 +371,7 @@ html[data-theme=dark] .cis-note{color:#a3b4d0}
    <div class="card c6" data-png="heatmap">
     <div class="ch"><div><h3>Heatmap % ตรงเวลา รายวัน × สัปดาห์</h3><div class="sub">แต่ละช่อง = 1 วัน · คลิกเพื่อเปิดรายละเอียดของวันนั้น</div></div></div>
     <div id="hm" class="hm"></div>
-    <div class="legend"><span>ต่ำ</span><span class="bar"></span><span>สูง</span></div><div class="pngfoot"></div>
+    <div class="legend" id="hmLeg"><span>ต่ำ</span><span class="bar"></span><span>สูง</span></div><div class="pngfoot"></div>
    </div>
    <div class="card c6" data-png="vehicle-type">
     <div class="ch"><div><h3>แยกตามประเภท/ชนิดรถ</h3><div class="sub">คลิกเพื่อกรอง</div></div></div>
@@ -425,7 +440,7 @@ html[data-theme=dark] .cis-note{color:#a3b4d0}
 
 
 </div></div>
-<script src="config.js?v=5"></script>
+<script src="config.js?v=6"></script>
 <script src="share.js?v=3"></script>
 <script src="boot.js?v=4"></script>
 </body></html>
