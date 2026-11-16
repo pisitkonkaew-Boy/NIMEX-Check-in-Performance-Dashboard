@@ -400,17 +400,12 @@ html[data-theme=dark] .cis-note{color:#a3b4d0}
 </div></div>
 
 <div class="mod" id="upl"><div class="small up">
- <h3>📂 เติมไฟล์ข้อมูล</h3><div class="note-s">แดชบอร์ดจะคำนวณและอัปเดตทันทีหลังนำเข้า</div>
- <div class="row"><b>1) ไฟล์ข้อมูล Check-in (.xlsx / .csv)</b><input type="file" id="upData" accept=".xlsx,.xlsm,.csv"><div class="note-s">ใช้หัวคอลัมน์เดียวกับชีต "Data Check-In" เดิม</div></div>
- <div class="row"><b>2) วิธีนำเข้า</b>
-  <label class="r"><input type="radio" name="upMode" value="append" checked="">เติมต่อท้าย (ข้ามรายการที่ซ้ำ)</label>
-  <label class="r"><input type="radio" name="upMode" value="replaceDates">แทนที่ข้อมูลเฉพาะวันที่ที่อยู่ในไฟล์</label>
-  <label class="r"><input type="radio" name="upMode" value="replaceAll">แทนที่ข้อมูลทั้งหมดด้วยไฟล์นี้</label></div>
- <div class="row"><b>3) (ไม่บังคับ) ไฟล์จับภาค/โซน Index</b><input type="file" id="upIdx" accept=".xlsx,.xlsm,.csv"><div class="note-s">คอลัมน์: รหัส DC | ชื่อ DC | Zone</div></div>
+ <h3>📂 เติมไฟล์ข้อมูล</h3><div class="note-s">เติมข้อมูลใหม่ต่อจากของเดิม · รายการที่ซ้ำ (วันที่ + DC + ทะเบียน + กะ) ใช้ค่าจากไฟล์ใหม่เสมอ</div>
+ <div class="row"><b>ไฟล์ข้อมูล Check-in (.xlsx / .csv)</b><input type="file" id="upData" accept=".xlsx,.xlsm,.csv"><div class="note-s">ใช้หัวคอลัมน์เดียวกับชีต "Data Check-In"</div></div>
+ <details class="row"><summary class="note-s" style="cursor:pointer">ไฟล์จับภาค/โซน Index (ไม่บังคับ)</summary><input type="file" id="upIdx" accept=".xlsx,.xlsm,.csv"><div class="note-s">คอลัมน์: รหัส DC | ชื่อ DC | Zone</div></details>
  <div class="upinfo hide" id="upInfo"></div>
- <div class="tools" style="margin-top:12px"><button class="btn gold" id="upGo" style="padding:8px 22px">นำเข้าและอัปเดตแดชบอร์ด</button><button class="btn" id="upSave">💾 บันทึกลง Google Sheet</button><button class="btn" id="upClose">ปิด</button></div>
- <div class="note-s" id="upMsg" style="margin-top:8px"></div>
- <div class="note-s" style="margin-top:6px">ข้อมูลที่นำเข้ามีผลในหน้านี้ทันที กด "บันทึกลง Google Sheet" เพื่อให้ผู้ชมทุกคนเห็นข้อมูลใหม่</div>
+ <div class="tools" style="margin-top:12px"><button class="btn gold" id="upGo" style="padding:8px 22px" disabled>ยืนยันการนำเข้าข้อมูล</button><button class="btn" id="upClose">ปิด</button></div>
+ <div class="note-s" id="upMsg" style="margin-top:8px;white-space:pre-line" role="status"></div>
 </div></div>
 
 <div class="mod" id="modal"><div class="mbox">
@@ -430,7 +425,7 @@ html[data-theme=dark] .cis-note{color:#a3b4d0}
 
 
 </div></div>
-<script src="config.js?v=4"></script>
+<script src="config.js?v=5"></script>
 <script src="share.js?v=3"></script>
-<script src="boot.js?v=3"></script>
+<script src="boot.js?v=4"></script>
 </body></html>

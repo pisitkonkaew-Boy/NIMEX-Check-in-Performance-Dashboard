@@ -37,15 +37,16 @@
   /* นำเข้าแล้วยังไม่บันทึก → เตือนก่อนรีเฟรช/ปิดหน้า */
   window.cipDirty = false;
   window.addEventListener('beforeunload', function (e) { if (window.cipDirty) { e.preventDefault(); e.returnValue = ''; } });
-  window.cipSave = function (D) {
+  window.cipSave = function (D, o) {
+    o = o || {};
     var m = $('upMsg'), say = function (t) { if (m) m.textContent = t; };
     if (!ss()) { say('กรุณาเข้าสู่ระบบผู้ดูแลก่อน'); return; }
     var first = D.dates[0], last = D.dates[D.dates.length - 1];
-    if (!window.confirm('บันทึกลง Google Sheet ให้ผู้ชมทุกคนเห็น\n\n• ' + D.rows.length.toLocaleString() + ' รายการ\n• ช่วงวันที่ ' + first + ' ถึง ' + last + '\n• ' + D.dcs.length + ' DC\n\nข้อมูลใน Sheet จะถูกแทนที่ด้วยชุดนี้ทั้งหมด')) { if (window.cipDirty) say('⚠️ ยังไม่ได้บันทึก — ข้อมูลที่นำเข้าจะหายเมื่อรีเฟรช กด "💾 บันทึกลง Google Sheet" เพื่อเก็บถาวร'); return; }
-    say('กำลังบันทึกลง Google Sheet…');
-    pushAll(D, 'save', function (n, all) { say('กำลังบันทึก ' + n.toLocaleString() + ' / ' + all.toLocaleString()); })
-      .then(function (r) { window.cipDirty = false; say('✓ บันทึกแล้ว ' + r.total.toLocaleString() + ' รายการ · ผู้ชมเห็นข้อมูลใหม่แล้ว'); status(new Date().toISOString()); })
-      .catch(function (e) { say('บันทึกไม่สำเร็จ: ' + (e.message === 'denied' ? 'รหัสไม่ถูกต้อง' : e.message) + ' — ข้อมูลที่นำเข้ายังไม่ถูกเก็บ ลองกด "💾 บันทึกลง Google Sheet" อีกครั้ง'); });
+    if (!o.noConfirm && !window.confirm('บันทึกลง Google Sheet ให้ผู้ชมทุกคนเห็น\n\n• ' + D.rows.length.toLocaleString() + ' รายการ\n• ช่วงวันที่ ' + first + ' ถึง ' + last + '\n• ' + D.dcs.length + ' DC\n\nข้อมูลใน Sheet จะถูกแทนที่ด้วยชุดนี้ทั้งหมด')) { if (window.cipDirty) say('⚠️ ยังไม่ได้บันทึก — ข้อมูลที่นำเข้าจะหายเมื่อรีเฟรช'); return; }
+    say((o.done ? o.done + '\n' : '') + 'กำลังบันทึกลง Google Sheet…'); var bt = $('upGo'), cl = $('upClose'); if (bt) bt.disabled = true; if (cl) cl.disabled = true;
+    pushAll(D, 'save', function (n, all) { say((o.done ? o.done + '\n' : '') + 'กำลังบันทึก ' + n.toLocaleString() + ' / ' + all.toLocaleString()); })
+      .then(function (r) { if (cl) cl.disabled = false; window.cipDirty = false; say((o.done ? o.done + '\n' : '') + '✓ บันทึกลง Google Sheet แล้ว ' + r.total.toLocaleString() + ' รายการ · ผู้ชมเห็นข้อมูลใหม่แล้ว'); status(new Date().toISOString()); })
+      .catch(function (e) { say('บันทึกไม่สำเร็จ: ' + (e.message === 'denied' ? 'รหัสไม่ถูกต้อง' : e.message) + ' — ข้อมูลยังไม่ถูกเก็บ กด "ลองบันทึกอีกครั้ง"'); if (cl) cl.disabled = false; if (bt) { bt.disabled = false; bt.textContent = 'ลองบันทึกอีกครั้ง'; bt.onclick = function () { bt.textContent = 'ยืนยันการนำเข้าข้อมูล'; bt.onclick = window.cipImport; window.cipSave(D, o); }; } });
   };
   function status(iso) { var s = $('nx-status'); if (s && iso) s.textContent = 'อัปเดตล่าสุด ' + new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }); }
 

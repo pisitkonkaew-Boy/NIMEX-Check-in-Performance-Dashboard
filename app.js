@@ -650,8 +650,9 @@ async function onPickData(e){
     const ds=p.recs.map(r=>r.date).sort(),dcs=[...new Set(p.recs.map(r=>r.dc))];
     const zm=pendIdx||D.zmap,unk=dcs.filter(s=>!zm[s.split(' ')[0]]);
     pendData=p;
-    showInfo(`ชีต: ${p.sheet}\nอ่านได้ ${num(p.recs.length)} รายการ จาก ${num(p.total)} แถว (ข้ามแถวที่ไม่สมบูรณ์ ${num(p.skip)})\nช่วงวันที่: ${thD(ds[0])} – ${thD(ds[ds.length-1])}\nDC ในไฟล์: ${dcs.length} แห่ง\nซ้ำกับข้อมูลเดิม: ${num(dup)} รายการ · ใหม่: ${num(p.recs.length-dup)} รายการ`+(unk.length?`\nDC ที่ยังไม่มีโซน (จะจัดเป็น "ไม่ระบุ"): ${unk.join(', ')}`:''));
-  }catch(err){showInfo('ผิดพลาด: '+err.message)}
+    showInfo(`ชีต: ${p.sheet}\nอ่านได้ ${num(p.recs.length)} รายการ จาก ${num(p.total)} แถว (ข้ามแถวที่ไม่สมบูรณ์ ${num(p.skip)})\nช่วงวันที่: ${thD(ds[0])} – ${thD(ds[ds.length-1])}\nDC ในไฟล์: ${dcs.length} แห่ง\nใหม่: ${num(p.recs.length-dup)} รายการ · ซ้ำกับข้อมูลเดิม: ${num(dup)} รายการ (จะใช้ค่าใหม่)`+(unk.length?`\nDC ที่ยังไม่มีโซน (จะจัดเป็น "ไม่ระบุ"): ${unk.join(', ')}`:''));
+    $('#upGo').disabled=false;$('#upMsg').textContent='กด "ยืนยันการนำเข้าข้อมูล" เพื่อเติมข้อมูลและบันทึก';
+  }catch(err){showInfo('ผิดพลาด: '+err.message);$('#upGo').disabled=!pendIdx}
 }
 async function onPickIdx(e){
   pendIdx=null;const f=e.target.files[0];if(!f)return;
@@ -664,20 +665,18 @@ function applyDataset(nd){
 }
 function doImport(){
   if(!pendData&&!pendIdx){$('#upMsg').textContent='กรุณาเลือกไฟล์ก่อน';return}
-  const mode=document.querySelector('input[name=upMode]:checked').value,zmap=pendIdx||D.zmap;
-  let base=decodeRecords(D),added=0,dup=0;
+  const zmap=pendIdx||D.zmap,key=r=>`${r.date}|${r.dc}|${r.plate}|${r.plan}`;
+  let base=decodeRecords(D),added=0,replaced=0;
   if(pendData){
-    const nr=pendData.recs;
-    if(mode==='replaceAll')base=[];
-    else if(mode==='replaceDates'){const ds=new Set(nr.map(r=>r.date));base=base.filter(r=>!ds.has(r.date))}
-    const key=r=>`${r.date}|${r.dc}|${r.plate}|${r.plan}`,seen=new Set(base.map(key));
-    for(const r of nr){const k=key(r);if(seen.has(k)){dup++;continue}seen.add(k);base.push(r);added++}
+    /* เติมข้อมูลใหม่ · ถ้าซ้ำ (วันที่+DC+ทะเบียน+กะ) ใช้ค่าจากไฟล์ใหม่เสมอ */
+    const nm=new Map();for(const r of pendData.recs)nm.set(key(r),r);
+    const n0=base.length;base=base.filter(r=>!nm.has(key(r)));replaced=n0-base.length;
+    for(const r of nm.values())base.push(r);added=nm.size-replaced;
   }
   applyDataset(buildDataset(base,zmap,D.zoneOrder));
-  $('#upMsg').textContent=`✓ นำเข้าสำเร็จ: เพิ่ม ${num(added)} รายการ${dup?` (ข้ามซ้ำ ${num(dup)})`:''}${pendIdx?' · อัปเดตโซนแล้ว':''} · รวม ${num(D.rows.length)} รายการ`;
-  pendData=null;pendIdx=null;$('#upData').value='';$('#upIdx').value='';$('#upInfo').classList.add('hide');
-  /* ขั้นเดียว: นำเข้าแล้วถามบันทึกลง Google Sheet ต่อทันที */
-  window.cipDirty=true;setTimeout(()=>window.cipSave(D),80);
+  const done=`✓ นำเข้าแล้ว: เพิ่มใหม่ ${num(added)} รายการ${replaced?` · แทนค่าซ้ำด้วยค่าใหม่ ${num(replaced)} รายการ`:''}${pendIdx?' · อัปเดตโซนแล้ว':''} · รวม ${num(D.rows.length)} รายการ`;
+  pendData=null;pendIdx=null;$('#upData').value='';$('#upIdx').value='';$('#upInfo').classList.add('hide');$('#upGo').disabled=true;
+  window.cipDirty=true;window.cipSave(D,{noConfirm:true,done});
 }
 function saveHTML(){
   const json=JSON.stringify(D).replace(/<\//g,'<\\/');
@@ -685,9 +684,9 @@ function saveHTML(){
   download(URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),`NIMEX_Checkin_Dashboard_${stamp()}.html`);
   $('#upMsg').textContent='✓ บันทึกไฟล์แดชบอร์ดฉบับอัปเดตแล้ว — ส่งไฟล์นี้ให้ผู้อื่นเพื่อให้เห็นข้อมูลล่าสุด';
 }
-$('#uplBtn').onclick=()=>{if(isAdmin){$('#upMsg').textContent='';$('#upl').classList.add('on')}};
+$('#uplBtn').onclick=()=>{if(isAdmin){if(!window.cipDirty)$('#upMsg').textContent='';$('#upGo').disabled=!(pendData||pendIdx);$('#upl').classList.add('on')}};
 $('#upClose').onclick=()=>$('#upl').classList.remove('on');
-$('#upData').onchange=onPickData;$('#upIdx').onchange=onPickIdx;$('#upGo').onclick=doImport;$('#upSave').onclick=()=>window.cipSave(D);
+$('#upData').onchange=onPickData;$('#upIdx').onchange=e=>{onPickIdx(e).then(()=>{if(pendIdx)$('#upGo').disabled=false})};$('#upGo').onclick=window.cipImport=doImport;
 
 /* ---------- init ---------- */
 themeCharts();buildFilters();addPngButtons();update();
