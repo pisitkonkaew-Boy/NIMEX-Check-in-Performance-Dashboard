@@ -53,7 +53,10 @@ function getRows(d0,d1,skipSt){const o=[];for(let k=0;k<R.length;k++){const r=R[
 function summ(rows){const s={n:rows.length,s:[0,0,0,0],fine:0,lateSum:0,veh:new Set()};for(const r of rows){s.s[r[9]]++;s.fine+=fineOf(r);if(r[9]===1)s.lateSum+=r[7];s.veh.add(r[4])}s.lateAvg=s.s[1]?s.lateSum/s.s[1]:0;return s}
 function groupBy(rows,keyFn){const m=new Map();for(const r of rows){const k=keyFn(r);let a=m.get(k);if(!a){a={n:0,s:[0,0,0,0],fine:0};m.set(k,a)}a.n++;a.s[r[9]]++;a.fine+=fineOf(r)}return m}
 let cur,prev,sum,psum,noSt;
+/* วันอาทิตย์ไม่แสดงและไม่คำนวณ: ขอบช่วงวันที่เลื่อนไปวันทำงานที่ใกล้ที่สุด */
+function noSun(i,dir){let j=Math.max(0,Math.min(N-1,i));while(j>=0&&j<N&&dInfo[j].dow===0)j+=dir;return j<0||j>=N?Math.max(0,Math.min(N-1,i)):j}
 function compute(){
+  F.d0=noSun(F.d0,1);F.d1=noSun(F.d1,-1);if(F.d1<F.d0)F.d1=F.d0;
   cur=getRows(F.d0,F.d1);sum=summ(cur);noSt=F.st.size?getRows(F.d0,F.d1,true):cur;
   const len=F.d1-F.d0+1,p1=F.d0-1,p0=p1-len+1;
   prev=p0>=0?getRows(p0,p1):null;psum=prev?summ(prev):null;
@@ -127,8 +130,8 @@ function buildFilters(){
   buildDateUI();
 }
 function buildDateUI(){
-  ['#d0','#d1'].forEach(id=>{$(id).innerHTML=D.dates.map((_,i)=>`<option value="${i}">${fmtD(i)} (${TH_D[dInfo[i].dow]})</option>`).join('')});
-  const q=[['ทั้งหมด',0,N-1],...months.map(m=>[TH_M[m.m-1],m.i0,m.i1]),['7 วันล่าสุด',Math.max(0,N-7),N-1],['30 วันล่าสุด',Math.max(0,N-30),N-1]];
+  ['#d0','#d1'].forEach(id=>{$(id).innerHTML=D.dates.map((_,i)=>dInfo[i].dow===0?'':`<option value="${i}">${fmtD(i)} (${TH_D[dInfo[i].dow]})</option>`).join('')});
+  const q=[['ทั้งหมด',0,N-1],...months.map(m=>[TH_M[m.m-1],m.i0,m.i1]),['7 วันล่าสุด',Math.max(0,N-7),N-1],['30 วันล่าสุด',Math.max(0,N-30),N-1]].map(x=>[x[0],noSun(x[1],1),noSun(x[2],-1)]);
   $('#qchips').innerHTML=q.map((x,i)=>`<button class="qc" data-i="${i}">${x[0]}</button>`).join('');
   $('#qchips').onclick=e=>{const b=e.target.closest('.qc');if(!b)return;const x=q[+b.dataset.i];F.d0=x[1];F.d1=x[2];update()};
   $('#qchips')._q=q;
@@ -700,11 +703,14 @@ function applyDataset(nd){
   buildDateUI();update();
 }
 function doImport(){
-  if(!pendData&&!pendIdx&&!dupCount()){$('#upMsg').textContent='กรุณาเลือกไฟล์ก่อน';return}
+  if(!pendData&&!pendIdx&&!dupCount()&&!sunCount()){$('#upMsg').textContent='กรุณาเลือกไฟล์ก่อน';return}
   const zmap=pendIdx||D.zmap,key=r=>`${r.date}|${r.dc}|${r.plate}|${r.plan}`;
   let base=decodeRecords(D),added=0,replaced=0;
   /* ล้างรายการซ้ำที่ค้างอยู่ในระบบ (เก็บค่าล่าสุด) */
+  const sun=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(Date.UTC(y-543,m-1,d)).getUTCDay()===0};
   const uq=new Map();for(const r of base)uq.set(key(r),r);const cleaned=base.length-uq.size;base=[...uq.values()];
+  const b0=base.length;base=base.filter(r=>!sun(r.date));let sunDel=b0-base.length;
+  if(pendData){const n0=pendData.recs.length;pendData.recs=pendData.recs.filter(r=>!sun(r.date));sunDel+=n0-pendData.recs.length}
   if(pendData){
     /* เติมข้อมูลใหม่ · ถ้าซ้ำ (วันที่+DC+ทะเบียน+กะ) ใช้ค่าจากไฟล์ใหม่เสมอ */
     const nm=new Map();for(const r of pendData.recs)nm.set(key(r),r);
@@ -712,7 +718,7 @@ function doImport(){
     for(const r of nm.values())base.push(r);added=nm.size-replaced;
   }
   applyDataset(buildDataset(base,zmap,D.zoneOrder));
-  const done=`✓ นำเข้าแล้ว: เพิ่มใหม่ ${num(added)} รายการ${replaced?` · แทนค่าซ้ำด้วยค่าใหม่ ${num(replaced)} รายการ`:''}${cleaned?` · ล้างรายการซ้ำเดิม ${num(cleaned)} รายการ`:''}${pendIdx?' · อัปเดตโซนแล้ว':''} · รวม ${num(D.rows.length)} รายการ`;
+  const done=`✓ นำเข้าแล้ว: เพิ่มใหม่ ${num(added)} รายการ${replaced?` · แทนค่าซ้ำด้วยค่าใหม่ ${num(replaced)} รายการ`:''}${cleaned?` · ล้างรายการซ้ำเดิม ${num(cleaned)} รายการ`:''}${sunDel?` · ลบข้อมูลวันอาทิตย์ ${num(sunDel)} รายการ`:''}${pendIdx?' · อัปเดตโซนแล้ว':''} · รวม ${num(D.rows.length)} รายการ`;
   pendData=null;pendIdx=null;$('#upData').value='';$('#upIdx').value='';$('#upInfo').classList.add('hide');$('#upGo').disabled=true;
   window.cipDirty=true;window.cipSave(D,{noConfirm:true,done});
 }
@@ -724,9 +730,10 @@ function saveHTML(){
 }
 /* ตรวจรายการซ้ำในระบบ (วันที่+DC+ทะเบียน+กะ) — มีปุ่มล้างให้ผู้ดูแล */
 function dupCount(){const k=new Set();let d=0;for(const r of R){const x=r[0]+'|'+r[1]+'|'+r[4]+'|'+r[5];if(k.has(x))d++;else k.add(x)}return d}
-function showDup(){const n=dupCount(),b=$('#upDup');if(!b)return;b.classList.toggle('hide',!n);b.textContent=`🧹 ล้างรายการซ้ำในระบบ (${num(n)} รายการ)`}
+function sunCount(){let n=0;for(const r of R)if(dInfo[r[0]].dow===0)n++;return n}
+function showDup(){const d=dupCount(),s=sunCount(),b=$('#upDup');if(!b)return;b.classList.toggle('hide',!(d+s));b.textContent=`🧹 ล้างข้อมูล: ซ้ำ ${num(d)} · วันอาทิตย์ ${num(s)} รายการ`}
 $('#uplBtn').onclick=()=>{if(isAdmin){if(!window.cipDirty)$('#upMsg').textContent='';$('#upGo').disabled=!(pendData||pendIdx);showDup();$('#upl').classList.add('on')}};
-$('#upDup').onclick=()=>{if(window.cipSaving)return;if(!confirm(`ล้างรายการซ้ำ ${num(dupCount())} รายการ (เก็บค่าล่าสุด) แล้วบันทึกลง Google Sheet?`))return;pendData=null;doImport();$('#upDup').classList.add('hide')};
+$('#upDup').onclick=()=>{if(window.cipSaving)return;if(!confirm(`ลบรายการซ้ำ ${num(dupCount())} รายการ (เก็บค่าล่าสุด) และข้อมูลวันอาทิตย์ ${num(sunCount())} รายการ แล้วบันทึกลง Google Sheet?`))return;pendData=null;doImport();$('#upDup').classList.add('hide')};
 $('#upClose').onclick=()=>$('#upl').classList.remove('on');
 $('#upData').onchange=onPickData;$('#upIdx').onchange=e=>{onPickIdx(e).then(()=>{if(pendIdx)$('#upGo').disabled=false})};$('#upGo').onclick=window.cipImport=doImport;
 
