@@ -21,7 +21,8 @@ var GOOD = '#1a9e5f', BAD = '#b8334a';           /* ผลต่าง: ดี =
 var BWK = ['on', 'late', 'nock', 'off'];
 var SECS = [['kpi', 'KPI หลัก'], ['zone', 'ผลรายโซน'], ['dc', 'DC ที่ % ตรงเวลาต่ำสุด 10 อันดับ'], ['group', 'ชนิดการจ้าง × ประเภทรถ']]
   .concat(BWK.map(function (id) { return ['bw_' + id, 'ดีสุด/แย่สุด · ' + KBY[id].l]; }));
-var picked = { kpi: 1, zone: 1, dc: 1, group: 1 };
+SECS.push(['detail', 'รายละเอียด Data Check-In (Excel เท่านั้น)']);
+var picked = { kpi: 1, zone: 1, dc: 1, group: 1, detail: 1 };
 
 /* ---------- เครื่องมือเล็ก ---------- */
 function $(id) { return document.getElementById(id); }
@@ -305,8 +306,24 @@ function download(blob, name) { var a = document.createElement('a'); a.href = UR
 function say(m) { var x = $('cis-msg'); if (x) x.textContent = m; }
 function doInfo() { say('กำลังสร้างอินโฟกราฟิก…'); return waitFonts().then(logoData).then(function (lg) { return toPng(infographic(lg), 1920, 1080, 2); }).then(function (b) { download(b, fname() + '-infographic-16x9.png'); say('✓ ดาวน์โหลดอินโฟกราฟิก 16:9 แล้ว (3840×2160)'); }).catch(function (e) { say('สร้างภาพไม่สำเร็จ: ' + e.message); }); }
 function doPng() { if (!sections(period()).length) return say('กรุณาเลือกหัวข้ออย่างน้อย 1 หัวข้อ'); say('กำลังสร้างรูป…'); return waitFonts().then(logoData).then(function (lg) { var L = longSvg(lg); return toPng(L.svg, L.W, L.H, 2); }).then(function (b) { download(b, fname() + '.png'); say('✓ ดาวน์โหลดรูป PNG แล้ว'); }).catch(function (e) { say('สร้างรูปไม่สำเร็จ: ' + e.message); }); }
+/* ชีตรายละเอียด: หัวคอลัมน์เดียวกับชีต "Data Check-In" ที่ใช้เติมไฟล์ · แถว = ตัวกรองบนหน้าตอนนี้ */
+function detailSheet() {
+  var STN = ['ตรงเวลา', 'สาย', 'ไม่ Check in', 'Check in ไม่ตรงจุด'], rule = F.fine === 'rule';
+  var head = ['DC', 'ประเภทรถ', 'ชนิดรถ', 'รหัสรถ', 'ทะเบียนรถ', 'วันที่', 'กำหนดเวลาเริ่มงาน', 'เวลา Check-in', 'ผลต่าง (นาที)', 'ระยะห่าง (กม.)', 'สถานะ', 'ค่าปรับ (บาท)'];
+  if (rule) head.push('ค่าปรับตามกฎ (บาท)');
+  var hm = function (m) { return m == null ? '' : String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+  var ser = function (s) { var a = s.split('-').map(Number); return (Date.UTC(a[0] - 543, a[1] - 1, a[2]) - Date.UTC(1899, 11, 30)) / 864e5; };
+  var rows = getRows(F.d0, F.d1).slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1] || a[4] - b[4]; }).map(function (r) {
+    var dc = D.dcs[r[1]], x = [dc.c + ' ' + dc.n, D.pts[r[2]], D.kinds[r[3]], D.vcode[r[4]] || '', D.plates[r[4]], ser(D.dates[r[0]]), D.shifts[r[5]], hm(r[6]), r[7] == null ? '' : r[7], r[8] == null ? '' : r[8], STN[r[9]], r[10]];
+    if (rule) x.push(r[11]); return x; });
+  var ws = XLSX.utils.aoa_to_sheet([head].concat(rows));
+  for (var i = 1; i <= rows.length; i++) { var a = XLSX.utils.encode_cell({ r: i, c: 5 }); if (ws[a]) ws[a].z = 'dd/mm/yyyy'; }
+  ws['!cols'] = head.map(function (h, i) { return { wch: i === 0 ? 24 : i === 10 ? 18 : 13 }; });
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: head.length - 1 } }) };
+  return { ws: ws, n: rows.length };
+}
 function doXlsx() {
-  var P = period(), secs = sections(P); if (!secs.length) return say('กรุณาเลือกหัวข้ออย่างน้อย 1 หัวข้อ');
+  var P = period(), secs = sections(P); if (!secs.length && !picked.detail) return say('กรุณาเลือกหัวข้ออย่างน้อย 1 หัวข้อ');
   return loadLib('xlsx').then(function () {
     var wb = XLSX.utils.book_new(), used = {};
     secs.forEach(function (sec) {
@@ -316,7 +333,8 @@ function doXlsx() {
       var name = SHEET[sec.k] || sec.k, i = 2; while (used[name]) name = name.slice(0, 26) + ' ' + (i++); used[name] = 1;
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), name);
     });
-    XLSX.writeFile(wb, fname() + '.xlsx'); say('✓ ดาวน์โหลด Excel แล้ว (' + secs.length + ' ชีต)');
+    var nS = secs.length; if (picked.detail) { var dt = detailSheet(); XLSX.utils.book_append_sheet(wb, dt.ws, 'Data Check-In'); nS++; }
+    XLSX.writeFile(wb, fname() + '.xlsx'); say('✓ ดาวน์โหลด Excel แล้ว (' + nS + ' ชีต' + (picked.detail ? ' · รายละเอียด ' + nf(dt.n) + ' แถว' : '') + ')');
   }).catch(function (e) { say('สร้าง Excel ไม่สำเร็จ: ' + e.message); });
 }
 function doPptx() {
